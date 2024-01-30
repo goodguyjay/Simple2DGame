@@ -1,0 +1,7 @@
+/home/jay/.local/share/JetBrains/Toolbox/apps/clion-nova/bin/cmake/linux/x64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/home/jay/.local/share/JetBrains/Toolbox/apps/clion-nova/bin/ninja/linux/x64/ninja -G Ninja -S /home/jay/CLionProjects/Assignment2 -B /home/jay/CLionProjects/Assignment2/cmake-build-debug
+-- libudev stable: 1
+-- Found UDev: /usr/lib/x86_64-linux-gnu/libudev.so
+--    include: /usr/include
+-- Configuring done (1.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/jay/CLionProjects/Assignment2/cmake-build-debug
