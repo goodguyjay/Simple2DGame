@@ -62,5 +62,5 @@ float Vec2::dist(const Vec2 &rhs) const {
 }
 
 float Vec2::length() const {
-    return 0;
+    return sqrtf(x * x + y * y);
 }

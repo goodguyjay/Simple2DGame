@@ -14,6 +14,7 @@
 #include <fstream>
 #include <iostream>
 #include <valarray>
+#include <random>
 
 Game::Game(const std::string &config) {
     init(config);
@@ -22,9 +23,9 @@ Game::Game(const std::string &config) {
 void Game::init(const std::string &path) {
     // TODO: read in config file here
     // use the premate PlayerConfig, EnemyConfig, BulletConfig variables
-    std::ifstream fin(path);
+    //std::ifstream fin(path);
 
-    fin >> m_playerConfig.SR >> m_playerConfig.CR /* ...*/;
+    //fin >> m_playerConfig.SR >> m_playerConfig.CR /* ...*/;
 
     // set up default window parameters
     // todo change to read from the config file
@@ -43,9 +44,9 @@ void Game::run() {
     while(m_running) {
         m_entities.update();
 
-        if (!m_paused) {
+        /*if (!m_paused) {
             // todo decide things
-        }
+        }*/
 
         sEnemySpawner();
         sMovement();
@@ -67,6 +68,7 @@ void Game::setPaused(bool paused) {
 
 void Game::spawnPlayer() {
     // TODO: finish adding all properties of the player with the correct values from the config
+    m_score = 0;
 
     // we create every entity by calling EntityManager.addEntity(tag)
     // this returns a std::shared_ptr<Entity> so we use auto to save typing
@@ -98,13 +100,22 @@ void Game::spawnEnemy() {
     // the enemy must be spawned completely within the bounds of the window
     auto entity = m_entities.addEntity("enemy");
 
-    // todo implement true randomness
-    float ex = rand() % m_window.getSize().x;
-    float ey = rand() % m_window.getSize().y;
+    std::random_device random;
+    std::mt19937 gen(random());
+    std::uniform_real_distribution<> ex(0, m_window.getSize().x - 30);
+    std::uniform_real_distribution<> ey(0, m_window.getSize().y + 45);
 
-    entity->cTransform = std::make_shared<CTransform>(Vec2(ex, ey), Vec2(0.0f, 0.0f), 0.0f);
+    /*Vec2 enemyPos;
+    float playerEnemyDist;
+    do {
+        enemyPos = Vec2(ex(gen), ey(gen));
+        playerEnemyDist = (enemyPos - m_player->cTransform->pos).length();
+    } while (playerEnemyDist < 50);*/
 
-    entity->cShape = std::make_shared<CShape>(16.0f, 3, sf::Color(0, 0, 255), sf::Color(255,255 , 255), 4.0f);
+    std::uniform_int_distribution<> points(1, 8);
+
+    entity->cTransform = std::make_shared<CTransform>(Vec2(ex(gen), ey(gen)), Vec2(3.0f, 1.0f), 0.0f);
+    entity->cShape = std::make_shared<CShape>(16.0f, points(gen), sf::Color(0, 0, 255), sf::Color(255,255 , 255), 4.0f);
     entity->cCollision = std::make_shared<CCollision>(25.0f);
 
     // record when the most recent enemy was spawned
@@ -122,17 +133,22 @@ void Game::spawnSmallEnemies(std::shared_ptr<Entity> e) {
 }
 
 void Game::spawnBullet(std::shared_ptr<Entity> entity, const Vec2 &target) {
-    // TODO: implement the spawning of a bullet which travels toward target
-    // -bullet speed is given as a scalar speed
-    // -you must set the velocity by using formula in notes
+
+    // calculate direction vector from player to target
+    Vec2 direction = target - entity->cTransform->pos;
+
+    // normalize the direction vector get a unit vector
+    Vec2 unitDirection = direction / direction.length();
+
+    // calculate the spawn position for the bullet
+    Vec2 spawnPos = entity->cTransform->pos + unitDirection * (entity->cShape->circle.getRadius() + 5.0f);
 
     auto bullet = m_entities.addEntity("bullet");
-    // todo properties transform and mouse pos
 
-    bullet->cTransform = std::make_shared<CTransform>(target, Vec2(0, 0), 0);
+    bullet->cTransform = std::make_shared<CTransform>(spawnPos, unitDirection * 5, 0);
     bullet->cShape = std::make_shared<CShape>(10, 8, sf::Color(255, 255, 255), sf::Color(255, 0, 0), 0);
     bullet->cLifespan = std::make_shared<CLifespan>(40);
-    bullet->cCollision = std::make_shared<CCollision>(15);
+    bullet->cCollision = std::make_shared<CCollision>(40);
 }
 
 void Game::spawnSpecialWeapon(std::shared_ptr<Entity> entity) {
@@ -156,10 +172,16 @@ void Game::sMovement() {
         }
     }
 
-    // todo other entities
-    /*m_player->cTransform->pos.x += m_player->cTransform->velocity.x;
-    m_player->cTransform->pos.y += m_player->cTransform->velocity.y;*/
     m_player->cTransform->pos += m_player->cTransform->velocity;
+
+    // handle bullet movement
+    for (auto bullet : m_entities.getEntities("bullet")) {
+        bullet->cTransform->pos += bullet->cTransform->velocity;
+    }
+
+    for (auto enemy : m_entities.getEntities("enemy")) {
+        enemy->cTransform->pos += enemy->cTransform->velocity;
+    }
 }
 
 void Game::sCollision() {
@@ -176,14 +198,30 @@ void Game::sCollision() {
             spawnPlayer();
             break;
         }
+
+        for(auto b : m_entities.getEntities("bullet")) {
+            float dx = b->cTransform->pos.x - e->cTransform->pos.x;
+            float dy = b->cTransform->pos.y - e->cTransform->pos.y;
+            float bulletDistance = std::sqrt(dx * dx + dy * dy);
+
+            if(bulletDistance < b->cCollision->radius + e->cCollision->radius) {
+                e->destroy();
+                b->destroy();
+                m_score += e->cShape->circle.getPointCount() * 2;
+                std::cout << "Score: " << m_score << std::endl;
+                break;
+            }
+        }
     }
 
     if(m_player->cTransform->pos.x + m_player->cShape->circle.getRadius() > m_window.getSize().x || m_player->cTransform->pos.x - m_player->cShape->circle.getRadius() <= 0) {
+        m_score = 0;
         m_player->destroy();
         spawnPlayer();
     }
 
     if(m_player->cTransform->pos.y + m_player->cShape->circle.getRadius() > m_window.getSize().y || m_player->cTransform->pos.y - m_player->cShape->circle.getRadius() <= 0) {
+        m_score = 0;
         m_player->destroy();
         spawnPlayer();
     }
@@ -191,11 +229,22 @@ void Game::sCollision() {
 
 
 void Game::sEnemySpawner() {
-    //
-    // (use m_currentFrame - m_lastEnemySpawnTime) to determine
-    // how long it has been since the last enemy spawned
     if (m_currentFrame - m_lastEnemySpawnTime > 90 || m_currentFrame == 1) {
         spawnEnemy();
+    }
+
+
+    // todo look at this later, it seems to be reverting the velocity of the enemy when it hits the wall
+    for(auto e : m_entities.getEntities("enemy")) {
+        if(e->cTransform->pos.x + e->cShape->circle.getRadius() > m_window.getSize().x || e->cTransform->pos.x - e->cShape->circle.getRadius() <= 0) {
+            e->cTransform->velocity.x *= -1;
+            //std::cout << "outside boundaries" << std::endl;
+        }
+
+        if(e->cTransform->pos.y + e->cShape->circle.getRadius() > m_window.getSize().y || e->cTransform->pos.y - e->cShape->circle.getRadius() <= 0) {
+            e->cTransform->velocity.y *= -1;
+            //std::cout << "outside boundaries" << std::endl;
+        }
     }
 
 }
@@ -233,12 +282,6 @@ void Game::sRender() {
 }
 
 void Game::sUserInput() {
-    // TODO: handle user input here
-    // note that you should only be setting the player's input component variables here
-    // you should not implement the player's movement logic here
-    // the movement system will read the variables you set in this function
-
-    //m_player->cInput->resetMovement();
 
     sf::Event event;
     while(m_window.pollEvent(event)) {
@@ -299,8 +342,7 @@ void Game::sUserInput() {
 
         if(event.type == sf::Event::MouseButtonPressed) {
             if(event.mouseButton.button == sf::Mouse::Left) {
-                std::cout << "Left mouse button clicked at (" << event.mouseButton.x << "," << event.mouseButton.y << std::endl;
-                // todo call spawnbullet and well, speed and stuff
+                //std::cout << "Left mouse button clicked at (" << event.mouseButton.x << "," << event.mouseButton.y << std::endl;
                 spawnBullet(m_player, Vec2(event.mouseButton.x, event.mouseButton.y));
             }
 
