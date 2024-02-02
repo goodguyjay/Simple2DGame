@@ -3,6 +3,9 @@ project(Assignment2)
 
 set(CMAKE_CXX_STANDARD 23)
 
+set(SFML_DIR C:\Dev\SFML-2.6.1)
+
+
 include(FetchContent)
 FetchContent_Declare(SFML
         GIT_REPOSITORY https://github.com/SFML/SFML.git
