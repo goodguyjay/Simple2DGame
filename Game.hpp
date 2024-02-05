@@ -51,7 +51,7 @@ private:
     void spawnSmallEnemies(std::shared_ptr<Entity> entity);
     void spawnBullet(std::shared_ptr<Entity> entity, const Vec2 &mousePos);
     void spawnSpecialWeapon(std::shared_ptr<Entity> entity);
-
+    static float toFloat(const unsigned int x) { return static_cast<float>(x); }
 public:
     Game(const std::string &config); // constructor that takes in game config
 
