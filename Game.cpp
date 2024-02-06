@@ -41,7 +41,7 @@ void Game::run() {
     // some systems should function while paused (rendering)
     // some systems shouldn't (movement / input)
 
-    while(m_running) {
+    while (m_running) {
         m_entities.update();
 
         /*if (!m_paused) {
@@ -102,8 +102,8 @@ void Game::spawnEnemy() {
 
     std::random_device random;
     std::mt19937 gen(random());
-    std::uniform_real_distribution<float> ex(0, static_cast<float>(m_window.getSize().x) - 30);
-    std::uniform_real_distribution<float> ey(0, static_cast<float>(m_window.getSize().y) + 45);
+    std::uniform_real_distribution<float> ex(30.0f, toFloat(m_window.getSize().x));
+    std::uniform_real_distribution<float> ey(30.0f, toFloat(m_window.getSize().y));
 
     std::uniform_int_distribution<> points(1, 8);
 
@@ -125,13 +125,13 @@ void Game::spawnSmallEnemies(std::shared_ptr<Entity> e) {
 
 }
 
-void Game::spawnBullet(std::shared_ptr<Entity> entity, const Vec2 &target) {
+void Game::spawnBullet(const std::shared_ptr<Entity>& entity, const Vec2 &target) {
 
     // calculate direction vector from player to target
-    Vec2 direction = target - entity->cTransform->pos;
+    const Vec2 direction = target - entity->cTransform->pos;
 
     // normalize the direction vector get a unit vector
-    Vec2 unitDirection = direction / direction.length();
+    const Vec2 unitDirection = direction / direction.length();
 
     // calculate the spawn position for the bullet
     Vec2 spawnPos = entity->cTransform->pos + unitDirection * (entity->cShape->circle.getRadius() + 5.0f);
@@ -179,14 +179,14 @@ void Game::sCollision() {
     //TODO: implement all proper collisions between entities
     // be sure to use the collision radius, not the shape radius
 
-    for(const auto& e : m_entities.getEntities("enemy")) {
+    for (const auto& e : m_entities.getEntities("enemy")) {
         float dx = m_player->cTransform->pos.x - e->cTransform->pos.x;
         float dy = m_player->cTransform->pos.y - e->cTransform->pos.y;
         float distance = std::sqrt(dx * dx + dy * dy);
 
         // if the distance between the player and the enemy is less than the sum of their radii, they are colliding
         // all enemies are destroyed and the player is destroyed and respawned
-        if(distance < m_player->cCollision->radius + e->cCollision->radius) {
+        if (distance < m_player->cCollision->radius + e->cCollision->radius) {
             m_player->destroy();
             for (const auto& allEnemies : m_entities.getEntities("enemy")) {
                 allEnemies->destroy();
@@ -196,12 +196,12 @@ void Game::sCollision() {
             break;
         }
 
-        for(auto b : m_entities.getEntities("bullet")) {
+        for (auto b : m_entities.getEntities("bullet")) {
             float bx = b->cTransform->pos.x - e->cTransform->pos.x;
             float by = b->cTransform->pos.y - e->cTransform->pos.y;
             float bulletDistance = std::sqrt(bx * bx + by * by);
 
-            if(bulletDistance < b->cCollision->radius + e->cCollision->radius) {
+            if (bulletDistance < b->cCollision->radius + e->cCollision->radius) {
                 e->destroy();
                 b->destroy();
                 m_score += e->cShape->circle.getPointCount() * 2;
@@ -211,14 +211,14 @@ void Game::sCollision() {
         }
     }
 
-    if(m_player->cTransform->pos.x + m_player->cShape->circle.getRadius() > m_window.getSize().x || m_player->cTransform->pos.x - m_player->cShape->circle.getRadius() <= 0) {
+    if (m_player->cTransform->pos.x + m_player->cShape->circle.getRadius() > toFloat(m_window.getSize().x) || m_player->cTransform->pos.x - m_player->cShape->circle.getRadius() <= 0) {
         m_score = 0;
         m_player->destroy();
         std::cout << "collision with a wall" << std::endl;
         spawnPlayer();
     }
 
-    if(m_player->cTransform->pos.y + m_player->cShape->circle.getRadius() > m_window.getSize().y || m_player->cTransform->pos.y - m_player->cShape->circle.getRadius() <= 0) {
+    if (m_player->cTransform->pos.y + m_player->cShape->circle.getRadius() > m_window.getSize().y || m_player->cTransform->pos.y - m_player->cShape->circle.getRadius() <= 0) {
         m_score = 0;
         m_player->destroy();
         std::cout << "collision with a wall" << std::endl;
@@ -234,28 +234,25 @@ void Game::sEnemySpawner() {
 
 
     // todo look at this later, it seems to be reverting the velocity of the enemy when it hits the wall
-    for(const auto& e : m_entities.getEntities("enemy")) {
-        if(e->cTransform->pos.x + e->cShape->circle.getRadius() > static_cast<float>(m_window.getSize().x) || e->cTransform->pos.x - e->cShape->circle.getRadius() <= 0) {
+    for (const auto& e : m_entities.getEntities("enemy")) {
+
+        if (e->cTransform->pos.x + e->cShape->circle.getRadius() > static_cast<float>(m_window.getSize().x) || e->cTransform->pos.x - e->cShape->circle.getRadius() <= 0) {
             e->cTransform->velocity.x *= -1;
             //std::cout << "outside boundaries" << std::endl;
         }
 
-        if(e->cTransform->pos.y + e->cShape->circle.getRadius() > m_window.getSize().y || e->cTransform->pos.y - e->cShape->circle.getRadius() <= 0) {
+        if (e->cTransform->pos.y + e->cShape->circle.getRadius() > m_window.getSize().y || e->cTransform->pos.y - e->cShape->circle.getRadius() <= 0) {
             e->cTransform->velocity.y *= -1;
             //std::cout << "outside boundaries" << std::endl;
         }
     }
-
 }
 
 
 
 void Game::sRender() {
-    // TODO: change the code below to draw all of the entities
     // sample drawing of the player entity that we have created
     m_window.clear();
-
-    //std::cout << m_entities.getEntities().size();
 
     // set the position of the shape based on the entity's transform->pos
     m_player->cShape->circle.setPosition(m_player->cTransform->pos.x, m_player->cTransform->pos.y);
@@ -264,11 +261,10 @@ void Game::sRender() {
     m_player->cTransform->angle += 1.0f;
     m_player->cShape->circle.setRotation(m_player->cTransform->angle);
 
-    // draw the entity's sf::CircleShape
-    // todo draw the enemies bruh ps-> bullets also?
+    // draw the shape
     m_window.draw(m_player->cShape->circle);
 
-    for (auto e : m_entities.getEntities()) {
+    for (const auto& e : m_entities.getEntities()) {
         e->cShape->circle.setPosition(e->cTransform->pos.x, e->cTransform->pos.y);
 
         e->cTransform->angle += 1.0f;
@@ -282,16 +278,16 @@ void Game::sRender() {
 
 void Game::sUserInput() {
 
-    sf::Event event;
-    while(m_window.pollEvent(event)) {
+    sf::Event event{};
+    while (m_window.pollEvent(event)) {
         //this event triggers when the window is closed
         if(event.type == sf::Event::Closed) {
             m_running = false;
         }
 
         //this event is triggered when a key is pressed
-        if(event.type == sf::Event::KeyPressed) {
-            switch(event.key.code) {
+        if (event.type == sf::Event::KeyPressed) {
+            switch (event.key.code) {
 
                 case sf::Keyboard::W:
                     m_player->cInput->up = true;
@@ -315,9 +311,9 @@ void Game::sUserInput() {
         }
 
         //this event is triggered when the key is released
-        if(event.type == sf::Event::KeyReleased) {
+        if (event.type == sf::Event::KeyReleased) {
 
-            switch(event.key.code) {
+            switch (event.key.code) {
 
                 case sf::Keyboard::W:
                     m_player->cInput->up = false;
@@ -339,13 +335,12 @@ void Game::sUserInput() {
             }
         }
 
-        if(event.type == sf::Event::MouseButtonPressed) {
-            if(event.mouseButton.button == sf::Mouse::Left) {
-                //std::cout << "Left mouse button clicked at (" << event.mouseButton.x << "," << event.mouseButton.y << std::endl;
-                spawnBullet(m_player, Vec2(event.mouseButton.x, event.mouseButton.y));
+        if (event.type == sf::Event::MouseButtonPressed) {
+            if (event.mouseButton.button == sf::Mouse::Left) {
+                spawnBullet(m_player, Vec2(toFloat(event.mouseButton.x), toFloat(event.mouseButton.y)));
             }
 
-            if(event.mouseButton.button == sf::Mouse::Right) {
+            if (event.mouseButton.button == sf::Mouse::Right) {
                 std::cout << "Right mouse button clicked at (" << event.mouseButton.x << "," << event.mouseButton.y << std::endl;
                 //todo call spawnSpecialWeapon
             }
@@ -354,7 +349,7 @@ void Game::sUserInput() {
 }
 
 void Game::sLifeSpan() {
-    for (auto b : m_entities.getEntities("bullet")) {
+    for (const auto& b : m_entities.getEntities("bullet")) {
         b->cLifespan->remaining -= 1;
 
         if (b->cLifespan->remaining == 0) {
