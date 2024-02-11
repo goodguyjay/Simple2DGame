@@ -20,16 +20,16 @@ public:
 
     Vec2 operator + (const Vec2 &rhs) const;
     Vec2 operator - (const Vec2 &rhs) const;
-    Vec2 operator / (const float val) const;
-    Vec2 operator * (const float val) const;
+    Vec2 operator / (float val) const;
+    Vec2 operator * (float val) const;
 
     void operator += (const Vec2 &rhs);
     void operator -= (const Vec2 &rhs);
     void operator *= (const float val);
     void operator /= (const float val);
 
-    float dist(const Vec2 &rhs) const;
-    float length() const;
+    [[nodiscard]] float dist(const Vec2 &rhs) const;
+    [[nodiscard]] float length() const;
 };
 
 

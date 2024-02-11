@@ -35,7 +35,7 @@ class CCollision {
 public:
     float radius = 0;
 
-    CCollision(float r)
+    explicit CCollision(float r)
         : radius(r) {}
 };
 
@@ -43,7 +43,7 @@ class CScore {
 public:
     int score = 0;
 
-    CScore(int s)
+    explicit CScore(int s)
         : score(s) {}
 
 };
@@ -54,7 +54,7 @@ public:
     int total = 0; // the total initial amount of lifespan
     //total maybe const?
 
-    CLifespan(int total)
+    explicit CLifespan(int total)
         : remaining(total), total(total) {}
 };
 

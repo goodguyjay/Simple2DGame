@@ -18,7 +18,7 @@ private:
 
     // private constructor
     Entity() = default;
-    Entity(const size_t id, const std::string &tag);
+    Entity(size_t id, const std::string &tag);
 public:
     // component pointers
     std::shared_ptr<CTransform> cTransform;
@@ -28,9 +28,9 @@ public:
     std::shared_ptr<CScore> cScore;
     std::shared_ptr<CLifespan> cLifespan;
 
-    bool isActive() const;
-    const std::string &tag() const;
-    const size_t &id() const;
+    [[nodiscard]] bool isActive() const;
+    [[nodiscard]] const std::string &tag() const;
+    [[nodiscard]] const size_t &id() const;
     void destroy();
 };
 

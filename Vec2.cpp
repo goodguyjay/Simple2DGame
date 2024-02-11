@@ -5,7 +5,7 @@
 #include "Vec2.hpp"
 #include <cmath>
 
-Vec2::Vec2() {}
+Vec2::Vec2() = default;
 
 Vec2::Vec2(float xin, float yin)
     : x(xin), y(yin) {
@@ -58,7 +58,7 @@ void Vec2::operator /= (const float val) {
 }
 
 float Vec2::dist(const Vec2 &rhs) const {
-    return sqrtf((powf(x - rhs.x, 2)) + powf(y - rhs.y, 2));
+    return sqrtf(powf(x - rhs.x, 2) + powf(y - rhs.y, 2));
 }
 
 float Vec2::length() const {

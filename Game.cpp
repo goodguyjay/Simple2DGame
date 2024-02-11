@@ -33,6 +33,22 @@ void Game::init(const std::string &path) {
     m_window.create(sf::VideoMode(1280, 720), "Simple 2D Game");
     m_window.setFramerateLimit(60);
 
+    sf::Font font;
+    if (!font.loadFromFile("C:/Users/jairr/CLionProjects/SimpleGame/font/BebasNeueRegular.ttf")) {
+        std::cerr << "Error loading font";
+    }
+
+    // this is wacky shit, todo redo later
+    m_font = font;
+
+    m_text.setFont(m_font);
+    m_text.setCharacterSize(24);
+    m_text.setFillColor(sf::Color::White);
+
+    m_highestScoreText.setFont(m_font);
+    m_highestScoreText.setCharacterSize(24);
+    m_highestScoreText.setFillColor(sf::Color::White);
+
     spawnPlayer();
 }
 
@@ -54,6 +70,17 @@ void Game::run() {
         sUserInput();
         sLifeSpan();
 
+        m_text.setString("Score: " + std::to_string(m_score));
+        sf::FloatRect scoreRect = m_text.getLocalBounds();
+        m_text.setOrigin(scoreRect.left + scoreRect.width/2.0f, scoreRect.top + scoreRect.height/2.0f);
+        m_text.setPosition(scoreRect.width, m_window.getSize().y - m_text.getCharacterSize() - 10);
+
+        // Update the highest score text todo ve isso depois
+        m_highestScoreText.setString("Highest Score: " + std::to_string(highestScore));
+        sf::FloatRect textRect = m_highestScoreText.getLocalBounds();
+        m_highestScoreText.setOrigin(textRect.left + textRect.width/2.0f, textRect.top  + textRect.height/2.0f);
+        m_highestScoreText.setPosition(m_window.getSize().x - textRect.width + 5.0f, m_window.getSize().y - m_highestScoreText.getCharacterSize() - 10);
+
         sRender();
 
         // increment the current frame
@@ -70,8 +97,6 @@ void Game::spawnPlayer() {
     // TODO: finish adding all properties of the player with the correct values from the config
     m_score = 0;
 
-    // we create every entity by calling EntityManager.addEntity(tag)
-    // this returns a std::shared_ptr<Entity> so we use auto to save typing
     const auto entity = m_entities.addEntity("player");
 
     // middle of the screen
@@ -86,11 +111,10 @@ void Game::spawnPlayer() {
     //entity->cShape = std::make_shared<CShape>(m_playerConfig.SR, m_playerConfig.V, sf::Color(10, 10, 10), sf::Color(255, 0, 0), 4.0f);
     entity->cShape = std::make_shared<CShape>(32.0f, 8, sf::Color(10, 10, 10), sf::Color(255, 0, 0), 4.0f);
 
-    // add an input component to the player so that we can use inputs
+    // added an input component to the player so that we can use inputs
     entity->cInput = std::make_shared<CInput>();
 
     // since we want this Entity to be our player, set our game's player variable to be this entity
-    // this goes slightly against the EntityManager paradigm, but we use the player so much it's worth it
     m_player = entity;
 }
 
@@ -100,16 +124,26 @@ void Game::spawnEnemy() {
     // the enemy must be spawned completely within the bounds of the window
     const auto entity = m_entities.addEntity("enemy");
 
+    entity->cCollision = std::make_shared<CCollision>(25.0f);
+
     std::random_device random;
     std::mt19937 gen(random());
-    std::uniform_real_distribution<float> ex(30.0f, toFloat(m_window.getSize().x));
-    std::uniform_real_distribution<float> ey(30.0f, toFloat(m_window.getSize().y));
+    std::uniform_real_distribution<> ex(entity->cCollision->radius * 2, toFloat(m_window.getSize().x) - entity->cCollision->radius * 2);
+    std::uniform_real_distribution<> ey(entity->cCollision->radius * 2, toFloat(m_window.getSize().y) - entity->cCollision->radius * 2);
 
     std::uniform_int_distribution<> points(1, 8);
+    std::uniform_int_distribution<> color(0, 255);
 
-    entity->cTransform = std::make_shared<CTransform>(Vec2(ex(gen), ey(gen)), Vec2(3.0f, 1.0f), 0.0f);
-    entity->cShape = std::make_shared<CShape>(16.0f, points(gen), sf::Color(0, 0, 255), sf::Color(255,255 , 255), 4.0f);
-    entity->cCollision = std::make_shared<CCollision>(25.0f);
+    entity->cTransform = std::make_shared<CTransform>(Vec2(ex(gen), ey(gen)), Vec2(0.0f, 0.0f), 0.0f);
+    entity->cShape = std::make_shared<CShape>(16.0f, points(gen), sf::Color(color(gen), color(gen), color(gen)), sf::Color(255,255 , 255), 4.0f);
+
+    // prevents the enemy from spawning within 150 pixels of the player
+    if (m_player->cTransform->pos.dist(entity->cTransform->pos) < 150) {
+        std::cout << "enemy destroyed" << std::endl;
+        entity->destroy();
+        std::cout << "prevented shit" << std::endl;
+        spawnEnemy();
+    }
 
     // record when the most recent enemy was spawned
     m_lastEnemySpawnTime = m_currentFrame;
@@ -138,7 +172,7 @@ void Game::spawnBullet(const std::shared_ptr<Entity>& entity, const Vec2 &target
 
     const auto bullet = m_entities.addEntity("bullet");
 
-    bullet->cTransform = std::make_shared<CTransform>(spawnPos, unitDirection * 5, 0);
+    bullet->cTransform = std::make_shared<CTransform>(spawnPos, unitDirection * 10, 0);
     bullet->cShape = std::make_shared<CShape>(10, 8, sf::Color(255, 255, 255), sf::Color(255, 0, 0), 0);
     bullet->cLifespan = std::make_shared<CLifespan>(40);
     bullet->cCollision = std::make_shared<CCollision>(20);
@@ -180,16 +214,14 @@ void Game::sCollision() {
     // be sure to use the collision radius, not the shape radius
 
     for (const auto& e : m_entities.getEntities("enemy")) {
-        float dx = m_player->cTransform->pos.x - e->cTransform->pos.x;
-        float dy = m_player->cTransform->pos.y - e->cTransform->pos.y;
-        float distance = std::sqrt(dx * dx + dy * dy);
+        sf::FloatRect playerBounds = m_player->cShape->circle.getGlobalBounds();
+        sf::FloatRect enemyBounds = e->cShape->circle.getGlobalBounds();
 
         // if the distance between the player and the enemy is less than the sum of their radii, they are colliding
         // all enemies are destroyed and the player is destroyed and respawned
-        if (distance < m_player->cCollision->radius + e->cCollision->radius) {
-            m_player->destroy();
-            for (const auto& allEnemies : m_entities.getEntities("enemy")) {
-                allEnemies->destroy();
+        if (playerBounds.intersects(enemyBounds)) {
+            for (const auto& allEntities : m_entities.getEntities()) {
+                allEntities->destroy();
             }
             std::cout << "Collision with enemy" << std::endl;
             spawnPlayer();
@@ -201,16 +233,26 @@ void Game::sCollision() {
             float by = b->cTransform->pos.y - e->cTransform->pos.y;
             float bulletDistance = std::sqrt(bx * bx + by * by);
 
+            // if the bullet hits the enemy, the bullet and enemy will be destroyed
             if (bulletDistance < b->cCollision->radius + e->cCollision->radius) {
+                std::cout << "enemy destroyed" << std::endl;
                 e->destroy();
                 b->destroy();
+
+                // increase the score by the number of points the enemy was worth
                 m_score += e->cShape->circle.getPointCount() * 2;
+
+                // if the score is higher than the highest score, set the highest score to the current score
+                if(m_score >= highestScore) {
+                    highestScore = m_score;
+                }
                 std::cout << "Score: " << m_score << std::endl;
                 break;
             }
         }
     }
 
+    // destroys player if it collides with the wall
     if (m_player->cTransform->pos.x + m_player->cShape->circle.getRadius() > toFloat(m_window.getSize().x) || m_player->cTransform->pos.x - m_player->cShape->circle.getRadius() <= 0) {
         m_score = 0;
         m_player->destroy();
@@ -218,7 +260,7 @@ void Game::sCollision() {
         spawnPlayer();
     }
 
-    if (m_player->cTransform->pos.y + m_player->cShape->circle.getRadius() > m_window.getSize().y || m_player->cTransform->pos.y - m_player->cShape->circle.getRadius() <= 0) {
+    if (m_player->cTransform->pos.y + m_player->cShape->circle.getRadius() > toFloat(m_window.getSize().y) || m_player->cTransform->pos.y - m_player->cShape->circle.getRadius() <= 0) {
         m_score = 0;
         m_player->destroy();
         std::cout << "collision with a wall" << std::endl;
@@ -226,24 +268,27 @@ void Game::sCollision() {
     }
 }
 
+int i = 0;
 
 void Game::sEnemySpawner() {
+
+    // spawns the enemy every 90 frames and on the first frame as well
     if (m_currentFrame - m_lastEnemySpawnTime > 90 || m_currentFrame == 1) {
+        m_entities.update();
         spawnEnemy();
+        i++;
+        std::cout << "spawned enemy " << i << std::endl;
     }
 
-
-    // todo look at this later, it seems to be reverting the velocity of the enemy when it hits the wall
+    // reverts the enemy velocity when it hits the wall
     for (const auto& e : m_entities.getEntities("enemy")) {
 
-        if (e->cTransform->pos.x + e->cShape->circle.getRadius() > static_cast<float>(m_window.getSize().x) || e->cTransform->pos.x - e->cShape->circle.getRadius() <= 0) {
+        if (e->cTransform->pos.x + e->cShape->circle.getRadius() > toFloat(m_window.getSize().x) || e->cTransform->pos.x - e->cShape->circle.getRadius() <= 0) {
             e->cTransform->velocity.x *= -1;
-            //std::cout << "outside boundaries" << std::endl;
         }
 
-        if (e->cTransform->pos.y + e->cShape->circle.getRadius() > m_window.getSize().y || e->cTransform->pos.y - e->cShape->circle.getRadius() <= 0) {
+        if (e->cTransform->pos.y + e->cShape->circle.getRadius() > toFloat(m_window.getSize().y) || e->cTransform->pos.y - e->cShape->circle.getRadius() <= 0) {
             e->cTransform->velocity.y *= -1;
-            //std::cout << "outside boundaries" << std::endl;
         }
     }
 }
@@ -264,6 +309,10 @@ void Game::sRender() {
     // draw the shape
     m_window.draw(m_player->cShape->circle);
 
+    // draw the font
+    m_window.draw(m_text);
+    m_window.draw(m_highestScoreText);
+
     for (const auto& e : m_entities.getEntities()) {
         e->cShape->circle.setPosition(e->cTransform->pos.x, e->cTransform->pos.y);
 
@@ -280,12 +329,12 @@ void Game::sUserInput() {
 
     sf::Event event{};
     while (m_window.pollEvent(event)) {
-        //this event triggers when the window is closed
+        // this event triggers when the window is closed
         if(event.type == sf::Event::Closed) {
             m_running = false;
         }
 
-        //this event is triggered when a key is pressed
+        // this event is triggered when a key is pressed
         if (event.type == sf::Event::KeyPressed) {
             switch (event.key.code) {
 
